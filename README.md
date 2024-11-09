@@ -81,5 +81,20 @@ On macOS, a handy tool is included: `lsregister`. You can use it to dump the con
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -dump
 ```
 
-On iOS, a similar tool is located at `/usr/bin/lsdiagnose`. Note that a dump of the database is also included in sysdiganose bundles. The dump in the sysdiagnose is ends with `.csstoredump`, and it is NOT the raw database, but a human readable version that is then serialized (why?).
+On iOS, a similar tool is located at `/usr/bin/lsdiagnose`
+
+### A note about sysdiagnose
+A dump of the database is also included in sysdiganose tarballs. The dump in the sysdiagnose is ends with `.csstoredump`, and it is NOT the raw database, but rather a human readable version that was serialized (why?)
+
+According to the README included with every sysdiagnose...
+```
+.csstoredump files:
+sysdiagnose generates the output of lregister/lsaw in a binary form. To convert
+these .csstoredump files to text files, use the following command: 
+
+	lsaw dump --file "PATH TO DUMP FILE" > lsaw.txt
+
+These files can also be opened in CSStore Viewer.
+```
+...however, I have no idea where one can obtain `lsaw` or `CSStore Viewer`.
 
