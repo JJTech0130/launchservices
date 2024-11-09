@@ -1,0 +1,50 @@
+--- !tapi-tbd
+tbd-version:           4
+targets:               [ armv7-ios, armv7s-ios, arm64-ios, arm64e-ios, arm64-ios-simulator, x86_64-macos, arm64-macos, arm64e-macos ]
+install-name:          '/System/Library/PrivateFrameworks/CoreServicesStore.framework/CoreServicesStore'
+exports:
+  - targets:              [ armv7-ios, armv7s-ios, arm64-ios, arm64e-ios, arm64-ios-simulator, x86_64-macos, arm64-macos, arm64e-macos ]
+    symbols:              [ __CSStoreWriteToUnit,
+                            __CSStoreWriteToURL,
+                            __CSStoreWriteToHeader,
+                            __CSStoreValidate,
+                            __CSStoreShow,
+                            __CSStoreSetMutable,
+                            __CSStoreSetExpectedAccessQueue,
+                            __CSStoreSetExpectedAccessContext,
+                            __CSStoreRemoveTable,
+                            __CSStoreIsMutable,
+                            __CSStoreGetXPCClass,
+                            __CSStoreGetTableWithName,
+                            __CSStoreGetStringTable,
+                            __CSStoreGetDictionaryTable,
+                            __CSStoreGetCatalogTable,
+                            __CSStoreGetArrayTable,
+                            __CSStoreGarbageCollect,
+                            __CSStoreEnumerateUnits,
+                            __CSStoreEnumerateTables,
+                            __CSStoreCreateXPCRepresentation,
+                            __CSStoreCreateWithXPCRepresentation,
+                            __CSStoreCreateWithURL,
+                            __CSStoreCreateDataWithUnitNoCopy,
+                            __CSStoreCreateByReadingFromFileHandle,
+                            __CSStoreCopyTableName,
+                            __CSStoreCopyMemoryStatistics,
+                            __CSStoreCopyDebugDescriptionOfUnit,
+                            __CSStoreCopyDebugDescriptionOfTable,
+                            __CSStoreCopyDebugDescriptionOfBytesInRange,
+                            __CSStoreCommit,
+                            __CSStoreAddTable,
+                            __CSStoreAccessContextCreateWithQueueAndAssertionFunctions,
+                            __CSStoreAccessContextCreateWithQueue,
+                            __CSStoreAccessContextCreateWithLock,
+                            __CSStoreAccessContextCreateSharedReadingContext,
+                            __CSStoreAccessContextAssertWriting,
+                            __CSStoreAccessContextAssertReading,
+                            __CSStoreAccessContextAccessForWrite,
+                            __CSStoreAccessContextAccessForRead,
+                            _CSStoreCreateMutableCopy,
+                            _CSStoreCreateMutable,
+                            _CSStoreGetUnit ]
+    objc-classes:         [ _CSStore ]
+...
