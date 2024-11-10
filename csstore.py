@@ -95,6 +95,52 @@ class CSStore:
 
         return cls(crc, size1, size2, catalog, tables)
     
+    def get_table(self, name: str) -> CSTable:
+        for table in self.tables.values():
+            if table.name == name:
+                return table
+        raise KeyError(f"Table {name} not found")
+    
+    def get_string(self, key: int) -> str:
+        return self.get_table("<string>").hashmap[key].data.decode("utf-8")
+
+def unpack_string(data: int) -> str:
+    packed_alphabet = '\x00 abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    return ''.join(packed_alphabet[(data >> (2 + 6 * i)) & 0x3f] for i in range(5)).rstrip('\x00')[::-1]
+
+@dataclass
+class LSDatabase:
+    store: CSStore
+
+    @classmethod
+    def from_bytes(cls, data: bytes):
+        store = CSStore.from_bytes(data)
+        return cls(store)
+    
+    def get_binding_list(self) -> dict[int, dict[str, list[str]]]:
+        binding_list = self.store.get_table("BindingList")
+        out = {}
+        for key, value in binding_list.hashmap.items():
+            d = BytesIO(value.data)
+            list_count = int.from_bytes(d.read(4), "little")
+            out_inner = {}
+            for _ in range(list_count):
+                name = self.store.get_string(int.from_bytes(d.read(4), "little"))
+                value_count = int.from_bytes(d.read(4), "little")
+                values = []
+                for _ in range(value_count):
+                    value = int.from_bytes(d.read(4), "little")
+                    if value & 1:
+                        value = unpack_string(value)
+                    else:
+                        value = self.store.get_string(value)
+                    values.append(value)
+                out_inner[name] = values
+            out[key] = out_inner
+        return out
+
+            
+
 @click.group()
 @click.argument("store_path")
 @click.pass_context
@@ -111,6 +157,13 @@ def dump(ctx, dump_path: str):
     with open(dump_path, "w") as f:
         import pprint
         pprint.pprint(store, f, width=800)
+
+@cli.command()
+@click.pass_context
+def test(ctx):
+    store: CSStore = ctx.obj
+    database = LSDatabase(store)
+    print(database.get_binding_list())
 
 if __name__ == "__main__":
     cli()
