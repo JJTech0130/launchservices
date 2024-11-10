@@ -20,51 +20,46 @@ class CSUnit:
         size = int.from_bytes(d.read(4), "little")
         data = d.read(size)
         return cls(id, flags, size, data)
-
-@dataclass
-class CSHashMap:
-    map: dict
-
-    @classmethod
-    def from_stream(cls, d: BytesIO, start: int) -> Self:
-        map = {}
-        tell = d.tell()
-        d.seek(start)
-        bucket_count = int.from_bytes(d.read(4), "little")
-        for _ in range(bucket_count):
-            item_count = int.from_bytes(d.read(4), "little")
-            items_offset = int.from_bytes(d.read(4), "little")
-            t = d.tell()
-            d.seek(items_offset)
-            for _ in range(item_count):
-                key = int.from_bytes(d.read(4), "little")
-                v = int.from_bytes(d.read(4), "little")
-                tv = d.tell()
-                d.seek(v)
-                value = CSUnit.from_stream(d)
-                d.seek(tv)
-                map[key] = value
-            d.seek(t)
-        d.seek(tell)
-        return cls(map)
+    
+def hashmap_from_stream(d: BytesIO, start: int) -> dict:
+    map = {}
+    tell = d.tell()
+    d.seek(start)
+    bucket_count = int.from_bytes(d.read(4), "little")
+    for _ in range(bucket_count):
+        item_count = int.from_bytes(d.read(4), "little")
+        items_offset = int.from_bytes(d.read(4), "little")
+        t = d.tell()
+        d.seek(items_offset)
+        for _ in range(item_count):
+            key = int.from_bytes(d.read(4), "little")
+            v = int.from_bytes(d.read(4), "little")
+            tv = d.tell()
+            d.seek(v)
+            value = CSUnit.from_stream(d)
+            d.seek(tv)
+            map[key] = value
+        d.seek(t)
+    d.seek(tell)
+    return map
         
 @dataclass
 class CSTable(CSUnit):
     name: str
-    next_unit: int
+    next_unit_id: int
     extra: bytes
-    hashmap: CSHashMap
+    hashmap: dict[int, CSUnit]
     
     @classmethod
     def from_unit(cls, unit: CSUnit, d: BytesIO) -> Self:
         da = BytesIO(unit.data)
         name = da.read(0x30).strip(b"\x00").decode("utf-8")
         da.read(0x10)
-        next_unit = int.from_bytes(da.read(4), "little")
+        next_unit_id = int.from_bytes(da.read(4), "little") * 4
         hashmap_header_start = int.from_bytes(da.read(4), "little")
         extra = da.read()
-        hashmap = CSHashMap.from_stream(d, hashmap_header_start)
-        return cls(unit.id, unit.flags, unit.size, unit.data, name, next_unit, extra, hashmap)
+        hashmap = hashmap_from_stream(d, hashmap_header_start)
+        return cls(unit.id, unit.flags, unit.size, unit.data, name, next_unit_id, extra, hashmap)
 
 @dataclass
 class CSStore:
@@ -79,8 +74,7 @@ class CSStore:
     @classmethod
     def from_bytes(cls, data: bytes):
         d = BytesIO(data)
-        #cls = cls()
-        
+
         # Header
         assert d.read(4) == cls.magic
         assert d.read(1) == cls.version.to_bytes(1, "little")
@@ -90,11 +84,13 @@ class CSStore:
         size1 = int.from_bytes(d.read(4), "little")
         size2 = int.from_bytes(d.read(4), "little")
 
-        catalog = CSTable.from_unit(CSUnit.from_stream(d), d)
+        catalog = CSUnit.from_stream(d)
+        assert catalog.flags & FLAG_CATALOG
+        catalog = CSTable.from_unit(catalog, d)
 
         tables = {}
 
-        for key, value in catalog.hashmap.map.items():
+        for key, value in catalog.hashmap.items():
             tables[key] = CSTable.from_unit(value, d)
 
         return cls(crc, size1, size2, catalog, tables)
