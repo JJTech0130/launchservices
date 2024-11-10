@@ -99,60 +99,10 @@ class CSStore:
 
         return cls(crc, size1, size2, catalog, tables)
 
-def unpack_6bit_string(packed_bytes):
-    """Unpack a 6-bit packed string."""
-
-    # Define a mapping of 6-bit values to characters
-    bit_to_char = {i: chr(i+64) for i in range(64)}
-
-    # Unpack the bytes into bits
-    bits = []
-    for byte in packed_bytes:
-        for i in range(8):
-            if (byte >> (7 - i)) & 1:
-                bits.append(1)
-            else:
-                bits.append(0)
-
-    # Decode the bits into characters
-    string = ""
-    current_char = 0
-    bit_count = 0
-    for bit in bits:
-        current_char |= bit << (5 - bit_count)
-        bit_count += 1
-        if bit_count >= 6:
-            string += bit_to_char[current_char]
-            current_char = 0
-            bit_count -= 6
-
-    return string
-
-def unpack_7bit(packed_bytes):
-    """Unpacks a 7-bit packed string."""
-
-    result = []
-    current_byte = 0
-    bit_count = 0
-
-    for byte in packed_bytes:
-        current_byte |= (byte << bit_count)
-        bit_count += 8
-
-        while bit_count >= 7:
-            result.append(chr(current_byte & 0x7F))
-            current_byte >>= 7
-            bit_count -= 7
-
-    return "".join(result)
-
 if __name__ == "__main__":
-    raw_store = open("com.apple.LaunchServices-3027-v2.csstore", "rb").read()
+    raw_store = open("./samples/com.apple.LaunchServices-5019-v2.csstore", "rb").read()
     store = CSStore.from_bytes(raw_store)
 
-    for _, table in store.tables.items():
-        if table.name == "PluginUUIDBinding":
-            print(table.hashmap.map[8].data.hex())
-            data = table.hashmap.map[8].data
-            print(unpack_7bit(data))
-            # Try to parse as 6-bit packed string
+    import pprint
+    with open("csstore.txt", "w") as f:
+        pprint.pprint(store, f, width=800)
