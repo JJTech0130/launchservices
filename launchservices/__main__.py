@@ -1,5 +1,6 @@
 import click
-from .csstore import CSStore, LSDatabase
+from .csstore import CSStore
+from .lsdatabase import LSDatabase
 from io import BytesIO
 
 @click.group()
