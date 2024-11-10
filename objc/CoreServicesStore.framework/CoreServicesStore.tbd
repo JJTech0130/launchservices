@@ -45,6 +45,8 @@ exports:
                             __CSStoreAccessContextAccessForRead,
                             _CSStoreCreateMutableCopy,
                             _CSStoreCreateMutable,
-                            _CSStoreGetUnit ]
+                            _CSStoreGetUnit,
+                            __CSStringBindingGetBindings,
+                            _CSStringBindingStoreInit ]
     objc-classes:         [ _CSStore ]
 ...
