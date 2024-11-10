@@ -1,14 +1,14 @@
-# What is Launch Services?
+# What is LaunchServices?
 
-Launch Services is an almost completely undocumented service that is critical for launching applications on macOS and iOS.
+LaunchServices is an almost completely undocumented service that is critical for launching applications on macOS and iOS.
 
-# How does Launch Services work?
+# How does LaunchServices work?
 
-`lsd`, the Launch Services daemon, is responsible for most of the heavy lifting. APIs such as `LSApplicationWorkspace` communicate with it over XPC in order to perform tasks and register applications with it.
+`lsd`, the LaunchServices daemon, is responsible for most of the heavy lifting. APIs such as `LSApplicationWorkspace` communicate with it over XPC in order to perform tasks and register applications with it.
 
 `lsd` creates a giant database of all applications on the system, and uses this database to determine which application to launch when a file is opened or a URL is clicked.
 
-## Launch Services Database
+## LaunchServices Database
 
 ### Where is the database located?
 On macOS, several versions of the database exist, one for each user. You can find their locations like this:
