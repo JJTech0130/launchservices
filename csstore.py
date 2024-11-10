@@ -340,9 +340,7 @@ def hexdump(b: bytes):
         chunk = d.read(16)
         if not chunk:
             break
-        #click.echo(binascii.hexlify(chunk).decode("utf-8") + " ", nl=False)
-        # start addr
-        click.echo(f"{d.tell() - 16:08x} ", nl=False)
+        click.echo(f"{d.tell() - 16:04x} ", nl=False)
         click.echo(" ".join(_format_byte(x) for x in chunk) + " ", nl=False)
         click.echo("".join(chr(x) if 32 <= x < 127 else click.style(".", "black") for x in chunk), nl=True)
 
@@ -367,9 +365,9 @@ def header(ctx):
         key = int.from_bytes(h.read(4), "little")
         assert int.from_bytes(h.read(4), "little") == 0x0
         if key & 0x0F000000 != 0:
-            click.echo(f"{(key &~ 0x0F000000):02x}")
+            click.echo(click.style(f"{(key &~ 0x0F000000):02x}", fg="black"))
             break
-        click.echo(f"{key:02x} ", nl=False)
+        click.echo(click.style(f"{key:02x} ", fg="black"), nl=False)
 
     click.echo(f"Build:\t\t{h.read(0x10).decode("utf-8")}")
     click.echo(f"Model:\t\t{h.read(0x20).decode("utf-8")}")
