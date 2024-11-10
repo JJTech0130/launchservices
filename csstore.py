@@ -332,13 +332,47 @@ def dump(ctx, dump_path: str):
         import pprint
         pprint.pprint(store, f, width=800)
 
+def hexdump(b: bytes):
+    d = BytesIO(b)
+    def _format_byte(b: int) -> str:
+        return f"{b:02x}" if b != 0 else click.style("00", fg="black")
+    while True:
+        chunk = d.read(16)
+        if not chunk:
+            break
+        #click.echo(binascii.hexlify(chunk).decode("utf-8") + " ", nl=False)
+        # start addr
+        click.echo(f"{d.tell() - 16:08x} ", nl=False)
+        click.echo(" ".join(_format_byte(x) for x in chunk) + " ", nl=False)
+        click.echo("".join(chr(x) if 32 <= x < 127 else click.style(".", "black") for x in chunk), nl=True)
+
 @cli.command()
 @click.pass_context
-def test(ctx):
+def header(ctx):
     store: CSStore = ctx.obj
     database = LSDatabase(store)
-    print("DB Header Extra len", len(database.store.get_table("DB Header").extra))
-    database.get_claims()
+
+    header = database.store.get_table("DB Header").extra
+
+    hexdump(header)
+
+    click.echo()
+    click.echo(f"DB Header len:\t{len(header)}")
+
+    h = BytesIO(header)
+    click.echo(f"DB Schema: \t{int.from_bytes(h.read(4), "little")}")
+    l = int.from_bytes(h.read(4), "little")
+
+    while h.tell() < l:
+        key = int.from_bytes(h.read(4), "little")
+        assert int.from_bytes(h.read(4), "little") == 0x0
+        if key & 0x0F000000 != 0:
+            click.echo(f"{(key &~ 0x0F000000):02x}")
+            break
+        click.echo(f"{key:02x} ", nl=False)
+
+    click.echo(f"Build:\t\t{h.read(0x10).decode("utf-8")}")
+    click.echo(f"Model:\t\t{h.read(0x20).decode("utf-8")}")
 
 if __name__ == "__main__":
     cli()
