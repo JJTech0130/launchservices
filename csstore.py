@@ -1,6 +1,7 @@
 from io import BytesIO
 from typing import Self
 from dataclasses import dataclass
+import click
 
 FLAG_CATALOG = 0x40000000
 ALL_FLAGS = FLAG_CATALOG
@@ -9,7 +10,6 @@ ALL_FLAGS = FLAG_CATALOG
 class CSUnit:
     id: int
     flags: int
-    size: int
     data: bytes
 
     @classmethod
@@ -19,7 +19,7 @@ class CSUnit:
         flags = id_and_flags & ALL_FLAGS
         size = int.from_bytes(d.read(4), "little")
         data = d.read(size)
-        return cls(id, flags, size, data)
+        return cls(id, flags, data)
     
 def hashmap_from_stream(d: BytesIO, start: int) -> dict:
     map = {}
@@ -59,7 +59,7 @@ class CSTable(CSUnit):
         hashmap_header_start = int.from_bytes(da.read(4), "little")
         extra = da.read()
         hashmap = hashmap_from_stream(d, hashmap_header_start)
-        return cls(unit.id, unit.flags, unit.size, unit.data, name, next_unit_id, extra, hashmap)
+        return cls(unit.id, unit.flags, unit.data, name, next_unit_id, extra, hashmap)
 
 @dataclass
 class CSStore:
@@ -94,11 +94,23 @@ class CSStore:
             tables[key] = CSTable.from_unit(value, d)
 
         return cls(crc, size1, size2, catalog, tables)
+    
+@click.group()
+@click.argument("store_path")
+@click.pass_context
+def cli(ctx, store_path: str):
+    raw_store = open(store_path, "rb").read()
+    store = CSStore.from_bytes(raw_store)
+    ctx.obj = store
+
+@cli.command()
+@click.argument("dump_path")
+@click.pass_context
+def dump(ctx, dump_path: str):
+    store: CSStore = ctx.obj
+    with open(dump_path, "w") as f:
+        import pprint
+        pprint.pprint(store, f, width=800)
 
 if __name__ == "__main__":
-    raw_store = open("./samples/com.apple.LaunchServices-5019-v2.csstore", "rb").read()
-    store = CSStore.from_bytes(raw_store)
-
-    import pprint
-    with open("csstore.txt", "w") as f:
-        pprint.pprint(store, f, width=800)
+    cli()

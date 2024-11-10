@@ -8,6 +8,16 @@ LaunchServices is an almost completely undocumented service that is critical for
 
 `lsd` creates a giant database of all applications on the system, and uses this database to determine which application to launch when a file is opened or a URL is clicked.
 
+# What does this repository contain?
+- `samples/`: contains a bunch of files sampled from macOS and iOS that are related to LaunchServices
+- `objc/`: contains Objective-C code for using CoreServicesStore.framework on macOS
+- `csstore.py`: a command line tool for reversing the LaunchServices database
+
+### How do I use `csstore.py`?
+```shell
+python ./csstore.py ./samples/com.apple.LaunchServices-5019-v2.csstore dump ./csstore.txt
+```
+
 ## LaunchServices Database
 
 ### Where is the database located?
