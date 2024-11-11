@@ -1,5 +1,5 @@
 import click
-from .csstore import CSStore
+from .csstore import CSStore, CSTable
 from .lsdatabase import LSDatabase
 from io import BytesIO
 
@@ -11,8 +11,10 @@ def csstore():
 @csstore.command()
 @click.argument("store_path")
 def create(store_path: str):
-    pass
-    #store = CSStore()
+    store = CSStore()
+    table = CSTable("test")
+    store.tables.append(table)
+    print(store)
     #with open(store_path, "wb") as f:
     #    f.write(store.to_bytes())
 
@@ -32,7 +34,7 @@ def dump(store_path: str, dump_path: str):
 def lsdb(ctx, store_path: str):
     raw_store = open(store_path, "rb").read()
     store = CSStore.from_bytes(raw_store)
-    database = LSDatabase(store)
+    database = LSDatabase(store=store)
     ctx.obj = database
 
 def hexdump(b: bytes):

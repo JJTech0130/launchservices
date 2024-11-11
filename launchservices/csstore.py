@@ -1,24 +1,28 @@
 from io import BytesIO
 from typing import Self
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 FLAG_CATALOG = 0x40000000
 ALL_FLAGS = FLAG_CATALOG
 
-@dataclass
+@dataclass(kw_only=True)
 class CSUnit:
-    id: int
-    flags: int
-    data: bytes
+    #id: int
+    flags: int = 0
+    _data: bytes = b""
 
     @classmethod
     def from_stream(cls, d: BytesIO) -> Self:
         id_and_flags = int.from_bytes(d.read(4), "little")
-        id = (id_and_flags &~ ALL_FLAGS) << 2
+        #id = (id_and_flags &~ ALL_FLAGS) << 2
         flags = id_and_flags & ALL_FLAGS
         size = int.from_bytes(d.read(4), "little")
         data = d.read(size)
-        return cls(id, flags, data)
+        return cls(flags=flags, _data=data)
+    
+    @property
+    def data(self) -> bytes:
+        return self._data
     
 def hashmap_from_stream(d: BytesIO, start: int) -> dict:
     map = {}
@@ -42,9 +46,13 @@ def hashmap_from_stream(d: BytesIO, start: int) -> dict:
 @dataclass
 class CSTable(CSUnit):
     name: str
-    _next_unit_id: int
-    extra: bytes
-    hashmap: dict[int, CSUnit]
+    _next_unit_id: int = 0
+    extra: bytes = b""
+    hashmap: dict[int, CSUnit] = field(default_factory=dict)
+
+    @property
+    def data(self) -> bytes:
+        raise NotImplementedError("Cannot get data from table")
     
     @classmethod
     def from_unit(cls, unit: CSUnit, d: BytesIO) -> Self:
@@ -54,19 +62,23 @@ class CSTable(CSUnit):
         next_unit_id = int.from_bytes(da.read(4), "little") * 4
         hashmap_header_start = int.from_bytes(da.read(4), "little")
         extra = da.read()
-        hashmap = hashmap_from_stream(d, hashmap_header_start)
-        for key, value in hashmap.items():
-            d.seek(value)
-            hashmap[key] = CSUnit.from_stream(d)
-        return cls(unit.id, unit.flags, unit.data, name, next_unit_id, extra, hashmap)
+        if hashmap_header_start != 0:
+            hashmap = hashmap_from_stream(d, hashmap_header_start)
+            for key, value in hashmap.items():
+                d.seek(value)
+                hashmap[key] = CSUnit.from_stream(d)
+        else:
+            hashmap = {}
+        return cls(name=name, _next_unit_id=next_unit_id, extra=extra, hashmap=hashmap)
     
     def store_unit(self, unit: CSUnit) -> int:
-        unit.id = self._next_unit_id
-        self.hashmap[unit.id] = unit
+        uid = self._next_unit_id
+        self.hashmap[uid] = unit
         self._next_unit_id += 4
-        return unit.id
+        return uid
+        
 
-@dataclass
+@dataclass(kw_only=True)
 class CSStringContainer:
     _strings: CSTable
     _refcnt: dict[int, int]
@@ -79,7 +91,7 @@ class CSStringContainer:
         for key, value in refcnt.items():
             assert (value & 0xFF00 == 0x100) or (value == 0)
             refcnt[key] = value & 0xFF # "Hints" are also stored here, usually 0x100
-        return cls(s, refcnt)
+        return cls(_strings=s, _refcnt=refcnt)
     
     def get_string(self, key: int) -> str:
         return self._strings.hashmap[key].data.decode("utf-8")
@@ -93,20 +105,16 @@ class CSStringContainer:
             del self._refcnt[key]
 
     def store_string(self, s: str) -> int:
-        key = self._strings.store_unit(CSUnit(0, 0, s.encode("utf-8")))
+        key = self._strings.store_unit(CSUnit(_data=s.encode("utf-8")))
         self._refcnt[key] = 1
         return key
 
-@dataclass
+@dataclass(kw_only=True)
 class CSStore:
     magic = b"bdsl"
     version = 2
-    crc: int
-    size1: int
-    size2: int
-    catalog: CSTable
-    strings: CSStringContainer
-    tables: dict[int, CSTable]
+    tables: list[CSTable] = field(default_factory=list)
+    _strings: CSStringContainer | None = None
 
     @classmethod
     def from_bytes(cls, data: bytes):
@@ -116,16 +124,16 @@ class CSStore:
         assert d.read(4) == cls.magic
         assert d.read(1) == cls.version.to_bytes(1, "little")
         d.read(1)
-        crc = int.from_bytes(d.read(2), "little")
+        _crc = int.from_bytes(d.read(2), "little")
         d.read(4)
-        size1 = int.from_bytes(d.read(4), "little")
-        size2 = int.from_bytes(d.read(4), "little")
+        _size1 = int.from_bytes(d.read(4), "little")
+        _size2 = int.from_bytes(d.read(4), "little")
 
         catalog = CSUnit.from_stream(d)
         assert catalog.flags & FLAG_CATALOG
         catalog = CSTable.from_unit(catalog, d)
 
-        tables = {}
+        tables = []
         strings = None
 
         for key, value in catalog.hashmap.items():
@@ -134,14 +142,21 @@ class CSStore:
                 strings = CSStringContainer.from_store(table, d)
                 continue
             else:
-                tables[key] = table
+                tables.append(table)
+                #tables[key] = table
 
-        assert strings
+        #assert strings
 
-        return cls(crc, size1, size2, catalog, strings, tables)
+        return cls(_strings=strings, tables=tables)
+    
+    @property
+    def strings(self) -> CSStringContainer:
+        if not self._strings:
+            self._strings = CSStringContainer(_strings=CSTable(name="<string>"), _refcnt={})
+        return self._strings
     
     def get_table(self, name: str) -> CSTable:
-        for table in self.tables.values():
+        for table in self.tables:
             if table.name == name:
                 return table
         raise KeyError(f"Table {name} not found")

@@ -12,7 +12,7 @@ def unpack_string(data: int) -> str:
 
 LSBinding = dict[str, list[str]]
 
-@dataclass
+@dataclass(kw_only=True)
 class LSClaim(CSUnit):
     class Flags(IntFlag):
         APPLE_DEFAULT = 0x1
@@ -77,9 +77,9 @@ class LSClaim(CSUnit):
 
         assert d.read() == b""
 
-        return cls(unit.id, unit.flags, unit.data, claiming_bundle_record, generation, flags, rank, roles, bundle, localized_names, req_caps, icon_files, delegate, bindings)
+        return cls(claiming_bundle=claiming_bundle_record, generation=generation, claim_flags=flags, rank=rank, roles=roles, bundle=bundle, localized_names=localized_names, req_caps=req_caps, icon_files=icon_files, delegate=delegate, bindings=bindings)
 
-@dataclass
+@dataclass(kw_only=True)
 class LSDatabase:
     store: CSStore
     schema: int = 0
@@ -94,7 +94,7 @@ class LSDatabase:
     @classmethod
     def from_bytes(cls, data: bytes):
         store = CSStore.from_bytes(data)
-        return cls(store)
+        return cls(store=store)
 
     def _parse_header(self) -> tuple[int, str, str]:
         header = BytesIO(self.store.get_table("DB Header").extra)

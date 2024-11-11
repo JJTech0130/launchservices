@@ -30,43 +30,49 @@ int main() {
         return 1;
     }
     NSLog(@"store: %@", store);
+
+    _CSStoreWriteToURL(store, url, nil, 0, &error);
+    if (error) {
+        NSLog(@"error: %@", error);
+        return 1;
+    }
     
-    //NSURL *existingURL = [NSURL URLWithString:@"file:///Users/jjtech/Downloads/com.apple.LaunchServices-4031-v2.csstore"];
-    NSURL *existingURL = [NSURL URLWithString:@"file:///Users/jjtech/Downloads/com.apple.LaunchServices-3027-v2.csstore"];
-    //NSURL *existingURL = [NSURL URLWithString:@"file:///private/var/folders/4n/tqjh0y5n45s_lr7ylncnqsy40000gn/0/com.apple.LaunchServices.dv/com.apple.LaunchServices-5019-v2.csstore"];
-    id existingStore = _CSStoreCreateWithURL(existingURL, &error);
-    // Force cast
-    existingStore = [(CSStore *)existingStore mutableCopyWithZone:nil error:nil];
-    if (!existingStore) {
-        NSLog(@"error: %@", error);
-        return 1;
-    }
-    NSLog(@"existingStore: %@", existingStore);
-    id out = _CSStoreEnumerateTables(existingStore, ^(unsigned int arg1, id arg2, const void* arg3, unsigned int arg4, char* arg5) {
-        NSLog(@"called with %d %@ %p %d '%s'", arg1, arg2, arg3, arg4, arg5);
-    });
-    //NSLog(@"out: %@", out);
+    // //NSURL *existingURL = [NSURL URLWithString:@"file:///Users/jjtech/Downloads/com.apple.LaunchServices-4031-v2.csstore"];
+    // //NSURL *existingURL = [NSURL URLWithString:@"file:///Users/jjtech/Downloads/com.apple.LaunchServices-3027-v2.csstore"];
+    // //NSURL *existingURL = [NSURL URLWithString:@"file:///private/var/folders/4n/tqjh0y5n45s_lr7ylncnqsy40000gn/0/com.apple.LaunchServices.dv/com.apple.LaunchServices-5019-v2.csstore"];
+    // id existingStore = _CSStoreCreateWithURL(existingURL, &error);
+    // // Force cast
+    // existingStore = [(CSStore *)existingStore mutableCopyWithZone:nil error:nil];
+    // if (!existingStore) {
+    //     NSLog(@"error: %@", error);
+    //     return 1;
+    // }
+    // NSLog(@"existingStore: %@", existingStore);
+    // id out = _CSStoreEnumerateTables(existingStore, ^(unsigned int arg1, id arg2, const void* arg3, unsigned int arg4, char* arg5) {
+    //     NSLog(@"called with %d %@ %p %d '%s'", arg1, arg2, arg3, arg4, arg5);
+    // });
+    // //NSLog(@"out: %@", out);
 
-    int arrayTable = _CSStoreGetArrayTable(existingStore);
-    if (!arrayTable) {
-        NSLog(@"error: %@", error);
-        return 1;
-    }
-    NSLog(@"arrayTable: %d", arrayTable);
+    // int arrayTable = _CSStoreGetArrayTable(existingStore);
+    // if (!arrayTable) {
+    //     NSLog(@"error: %@", error);
+    //     return 1;
+    // }
+    // NSLog(@"arrayTable: %d", arrayTable);
 
-    id debugDescription = _CSStoreCopyDebugDescriptionOfTable(existingStore, 60, false);
-    if (!debugDescription) {
-        NSLog(@"error: %@", error);
-        return 1;
-    }
-    NSLog(@"debugDescription: %@", [debugDescription string]);
+    // id debugDescription = _CSStoreCopyDebugDescriptionOfTable(existingStore, 60, false);
+    // if (!debugDescription) {
+    //     NSLog(@"error: %@", error);
+    //     return 1;
+    // }
+    // NSLog(@"debugDescription: %@", [debugDescription string]);
 
-    void *out1 = NULL;
-    int result = CSStringBindingStoreInit(existingStore, @"UTIBinding", 4, 1, &out1);
-    if (result) {
-        NSLog(@"error: %d", result);
-        return 1;
-    }
+    // void *out1 = NULL;
+    // int result = CSStringBindingStoreInit(existingStore, @"UTIBinding", 4, 1, &out1);
+    // if (result) {
+    //     NSLog(@"error: %d", result);
+    //     return 1;
+    // }
     
 
 
