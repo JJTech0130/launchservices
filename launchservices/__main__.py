@@ -60,5 +60,16 @@ def header(ctx):
     click.echo(f"Build:\t\t{h.read(0x10).decode("utf-8")}")
     click.echo(f"Model:\t\t{h.read(0x20).decode("utf-8")}")
 
+@cli.command()
+@click.pass_context
+def claims(ctx):
+    store: CSStore = ctx.obj
+    database = LSDatabase(store)
+    assert "iPhone" in database.model
+
+    claims = database.get_claims()
+    for key, value in claims.items():
+        click.echo(f"{key:04x}: {value}")
+
 if __name__ == "__main__":
     cli()

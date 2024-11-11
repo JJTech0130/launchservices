@@ -1,5 +1,6 @@
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import IntFlag
 from io import BytesIO
 from typing import Self
 
@@ -13,138 +14,100 @@ LSBinding = dict[str, list[str]]
 
 @dataclass
 class LSClaim(CSUnit):
+    class Flags(IntFlag):
+        APPLE_DEFAULT = 0x1
+        APPLE_DEFAULT_NO_OVERRIDE = 0x2
+        APPLE_INTERNAL = 0x4
+        RELATIVE_ICON_PATH = 0x1000
+        PACKAGE = 0x8
+        LEGACY_WILDCARD = 0x10
+        DOC_TYPE = 0x20
+        URL_TYPE = 0x40
+        PRIVATE_SCHEME = 0x80
+        ALWAYS_AVAILABLE = 0x100
+        RESOLVES_ICLOUD_CONFLICTS = 0x200
+        UTI_WILDCARD = 0x400
+        SUPPORTS_COLLABORATION = 0x800
+    
+    class Roles(IntFlag):
+        NONE = 0x1
+        VIEWER = 0x2
+        EDITOR = 0x4
+        SHELL = 0x8
+        IMPORTER = 0x10
+        QLGENERATOR = 0x20
+
+    claiming_bundle: int
+    generation: int
     claim_flags: "LSClaim.Flags"
     rank: int
-    roles: list[str]
-    unknown: int
-    localized_names: list[str]
+    roles: "LSClaim.Roles"
+    bundle: int
+    localized_names: int
     req_caps: list[str]
     icon_files: list[str]
-    icon_name: str
     delegate: str
     bindings: LSBinding
-
-    class Flags:
-        apple_default = 0x1
-        apple_default_no_override = 0x2
-        apple_internal = 0x4
-        relative_icon_path = 0x1000
-        package = 0x8
-        legacy_wildcard = 0x10
-        doc_type = 0x20
-        url_type = 0x40
-        private_scheme = 0x80
-        always_available = 0x100
-        resolves_icloud_conflicts = 0x200
-        uti_wildcard = 0x400
-        supports_collaboration = 0x800
-
-        def __init__(self, flags: int):
-            self.flags = flags
-        
-        def __str__(self):
-            out = []
-            if self.flags & self.apple_default:
-                out.append("apple-default")
-            if self.flags & self.apple_internal:
-                out.append("apple-internal")
-            if self.flags & self.relative_icon_path:
-                out.append("relative-icon-path")
-            if self.flags & self.package:
-                out.append("package")
-            if self.flags & self.legacy_wildcard:
-                out.append("wildcard")
-            if self.flags & self.doc_type:
-                out.append("doc-type")
-            if self.flags & self.url_type:
-                out.append("url-type")
-            if self.flags & self.private_scheme:
-                out.append("private-scheme")
-            if self.flags & self.always_available:
-                out.append("always-available")
-            if self.flags & self.resolves_icloud_conflicts:
-                out.append("resolves-icloud-conflicts")
-            return ", ".join(out)
-        
-        def __repr__(self):
-            return "[" + str(self) + "]"
-        
-    class Roles:
-        none = 0x1
-        viewer = 0x2
-        editor = 0x4
-        shell = 0x8
-        importer = 0x10
-        qlgenerator = 0x20
-
-        def __init__(self, roles: int):
-            self.roles = roles
-        
-        def __str__(self):
-            out = []
-            if self.roles & self.none:
-                out.append("none")
-            if self.roles & self.viewer:
-                out.append("viewer")
-            if self.roles & self.editor:
-                out.append("editor")
-            if self.roles & self.shell:
-                out.append("shell")
-            if self.roles & self.importer:
-                out.append("importer")
-            if self.roles & self.qlgenerator:
-                out.append("qlgenerator")
-            return ", ".join(out)
-        
-        def __repr__(self):
-            return "[" + str(self) + "]"
-
-#     claim id:                   Numbers document (0x608)
-# localizedNames:             "LSDefaultLocalizedValue" = "Numbers document"
-# rank:                       Default
-# bundle:                     com.apple.system-library (0x140)
-# flags:                      apple-internal  package  doc-type (000000000000002c)
-# roles:                      Importer (0000000000000010)
-# delegate:                   Spotlight/iWork.mdimporter/
-# bindings:                   com.apple.iwork.numbers.numbers-tef
-        
 
     @classmethod
     def from_unit(cls, unit: CSUnit, database: "LSDatabase") -> Self:
         d = BytesIO(unit.data)
-        d.read(8)
-
+        claiming_bundle_record = int.from_bytes(d.read(4), "little")
+        generation = int.from_bytes(d.read(4), "little")
+        
         flags = cls.Flags(int.from_bytes(d.read(4), "little"))
-
         rank = int.from_bytes(d.read(2), "little")
         roles = cls.Roles(int.from_bytes(d.read(2), "little"))
 
-        unknown = int.from_bytes(d.read(4), "little")
-        
-        #localized_names = database.get_string_array(int.from_bytes(d.read(4), "little"))
-        localized_names = ["TODO"]
-        d.read(4)
+        bundle = int.from_bytes(d.read(4), "little")
+        localized_names = int.from_bytes(d.read(4), "little")
         
         req_caps = database.get_string_array(int.from_bytes(d.read(4), "little"))
-        icon_files = database.get_string_array(int.from_bytes(d.read(4), "little"))
-        icon_name = database.store.get_string(int.from_bytes(d.read(4), "little"))
+
+        icon_files = []
+        for _ in range(9):
+            i = int.from_bytes(d.read(4), "little")
+            if i != 0 and i != 1:
+                icon_files.append(database.store.get_string(i))
+        
         delegate = database.store.get_string(int.from_bytes(d.read(4), "little"))
+        if delegate != "":
+            raise NotImplementedError("Delegate is not empty")
         bindings = database.binding_list[int.from_bytes(d.read(4), "little")]
 
-        return cls(unit.id, unit.flags, unit.data, flags, rank, roles, unknown, localized_names, req_caps, icon_files, icon_name, delegate, bindings)
+        assert d.read() == b""
+
+        return cls(unit.id, unit.flags, unit.data, claiming_bundle_record, generation, flags, rank, roles, bundle, localized_names, req_caps, icon_files, delegate, bindings)
 
 @dataclass
 class LSDatabase:
     store: CSStore
-    binding_list: dict[int, LSBinding] = None
+    schema: int = 0
+    build: str = ""
+    model: str = ""
+    binding_list: dict[int, LSBinding] = field(default_factory=dict)
 
     def __post_init__(self):
+        self.schema, self.build, self.model = self._parse_header()
         self.binding_list = self._get_binding_list()
 
     @classmethod
     def from_bytes(cls, data: bytes):
         store = CSStore.from_bytes(data)
         return cls(store)
+
+    def _parse_header(self) -> tuple[int, str, str]:
+        header = BytesIO(self.store.get_table("DB Header").extra)
+        schema = int.from_bytes(header.read(4), "little")
+        header_len = int.from_bytes(header.read(4), "little")
+        while header.tell() < header_len:
+            key = int.from_bytes(header.read(4), "little")
+            assert int.from_bytes(header.read(4), "little") == 0x0
+            if key & 0x0F000000 != 0:
+                break
+        build = header.read(0x10).decode("utf-8")
+        model = header.read(0x20).decode("utf-8")
+        return schema, build, model
     
     def _get_binding_list(self) -> dict[int, LSBinding]:
         binding_list = self.store.get_table("BindingList")
@@ -171,31 +134,18 @@ class LSDatabase:
     def get_claims(self):
         claims = self.store.get_table("Claim")
         out = {}
-#         0x08 flags
-# 0x0e roles
-# 0x10 ????
-# 0x14 localizedNames
-# 0x18 reqCaps
-# 0x1c iconFiles
-# 0x20 iconName
-# 0x24 delegate
-# 0x28 bindings
-        # Sort the hashmap
-        claims.hashmap = dict(sorted(claims.hashmap.items()))
-        cl = len(list(claims.hashmap.values())[1].data)
+
         for key, value in claims.hashmap.items():
             if value.data == b"":
                 out[key] = None
                 continue
-            #out[key] = LSClaim.from_unit(value, self)
-            #print(out[key])
-            if len(value.data) != cl:
-                print("odd claim")
+            out[key] = LSClaim.from_unit(value, self)
 
-        print("claim length", cl)
         return out
 
     def get_string_array(self, key: int) -> list[str]:
+        if key != 0:
+            raise NotImplementedError("<array> never tested")
         return [self.store.get_string(x) for x in self.store.get_array(key)]
 
             
