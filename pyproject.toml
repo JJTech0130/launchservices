@@ -23,7 +23,8 @@ test = ["pytest", "pytest-asyncio"]
 "Bug Reports" = "https://github.com/JJTech0130/launchservices/issues"
 
 [project.scripts]
-launchservices = "launchservices.__main__:cli"
+lsdb = "launchservices.__main__:lsdb"
+csstore = "launchservices.__main__:csstore"
 
 [tool.setuptools.packages.find]
 exclude = ["docs*", "tests*"]

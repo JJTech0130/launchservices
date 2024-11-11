@@ -4,21 +4,36 @@ from .lsdatabase import LSDatabase
 from io import BytesIO
 
 @click.group()
+#@click.pass_context
+def csstore():
+    pass
+
+@csstore.command()
 @click.argument("store_path")
-@click.pass_context
-def cli(ctx, store_path: str):
+def create(store_path: str):
+    pass
+    #store = CSStore()
+    #with open(store_path, "wb") as f:
+    #    f.write(store.to_bytes())
+
+@csstore.command()
+@click.argument("store_path")
+@click.argument("dump_path")
+def dump(store_path: str, dump_path: str):
     raw_store = open(store_path, "rb").read()
     store = CSStore.from_bytes(raw_store)
-    ctx.obj = store
-
-@cli.command()
-@click.argument("dump_path")
-@click.pass_context
-def dump(ctx, dump_path: str):
-    store: CSStore = ctx.obj
     with open(dump_path, "w") as f:
         import pprint
         pprint.pprint(store, f, width=800)
+
+@click.group()
+@click.argument("store_path")
+@click.pass_context
+def lsdb(ctx, store_path: str):
+    raw_store = open(store_path, "rb").read()
+    store = CSStore.from_bytes(raw_store)
+    database = LSDatabase(store)
+    ctx.obj = database
 
 def hexdump(b: bytes):
     d = BytesIO(b)
@@ -32,11 +47,10 @@ def hexdump(b: bytes):
         click.echo(" ".join(_format_byte(x) for x in chunk) + " ", nl=False)
         click.echo("".join(chr(x) if 32 <= x < 127 else click.style(".", "black") for x in chunk), nl=True)
 
-@cli.command()
+@lsdb.command()
 @click.pass_context
 def header(ctx):
-    store: CSStore = ctx.obj
-    database = LSDatabase(store)
+    database: LSDatabase = ctx.obj
 
     header = database.store.get_table("DB Header").extra
 
@@ -60,11 +74,10 @@ def header(ctx):
     click.echo(f"Build:\t\t{h.read(0x10).decode("utf-8")}")
     click.echo(f"Model:\t\t{h.read(0x20).decode("utf-8")}")
 
-@cli.command()
+@lsdb.command()
 @click.pass_context
 def claims(ctx):
-    store: CSStore = ctx.obj
-    database = LSDatabase(store)
+    database: LSDatabase = ctx.obj
     assert "iPhone" in database.model
 
     claims = database.get_claims()
@@ -72,4 +85,4 @@ def claims(ctx):
         click.echo(f"{key:04x}: {value}")
 
 if __name__ == "__main__":
-    cli()
+    lsdb()

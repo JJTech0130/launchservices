@@ -33,11 +33,8 @@ def hashmap_from_stream(d: BytesIO, start: int) -> dict:
         for _ in range(item_count):
             key = int.from_bytes(d.read(4), "little")
             v = int.from_bytes(d.read(4), "little")
-            tv = d.tell()
-            d.seek(v)
-            value = CSUnit.from_stream(d)
-            d.seek(tv)
-            map[key] = value
+
+            map[key] = v
         d.seek(t)
     d.seek(tell)
     return map
@@ -45,7 +42,7 @@ def hashmap_from_stream(d: BytesIO, start: int) -> dict:
 @dataclass
 class CSTable(CSUnit):
     name: str
-    next_unit_id: int
+    _next_unit_id: int
     extra: bytes
     hashmap: dict[int, CSUnit]
     
@@ -58,7 +55,47 @@ class CSTable(CSUnit):
         hashmap_header_start = int.from_bytes(da.read(4), "little")
         extra = da.read()
         hashmap = hashmap_from_stream(d, hashmap_header_start)
+        for key, value in hashmap.items():
+            d.seek(value)
+            hashmap[key] = CSUnit.from_stream(d)
         return cls(unit.id, unit.flags, unit.data, name, next_unit_id, extra, hashmap)
+    
+    def store_unit(self, unit: CSUnit) -> int:
+        unit.id = self._next_unit_id
+        self.hashmap[unit.id] = unit
+        self._next_unit_id += 4
+        return unit.id
+
+@dataclass
+class CSStringContainer:
+    _strings: CSTable
+    _refcnt: dict[int, int]
+
+    @classmethod
+    def from_store(cls, s: CSTable, d: BytesIO) -> Self:
+        ref = int.from_bytes(s.extra, "little")
+        refcnt = hashmap_from_stream(d, ref)
+
+        for key, value in refcnt.items():
+            assert (value & 0xFF00 == 0x100) or (value == 0)
+            refcnt[key] = value & 0xFF # "Hints" are also stored here, usually 0x100
+        return cls(s, refcnt)
+    
+    def get_string(self, key: int) -> str:
+        return self._strings.hashmap[key].data.decode("utf-8")
+    
+    def retain_string(self, key: int):
+        self._refcnt[key] += 1
+    
+    def release_string(self, key: int):
+        self._refcnt[key] -= 1
+        if self._refcnt[key] == 0:
+            del self._refcnt[key]
+
+    def store_string(self, s: str) -> int:
+        key = self._strings.store_unit(CSUnit(0, 0, s.encode("utf-8")))
+        self._refcnt[key] = 1
+        return key
 
 @dataclass
 class CSStore:
@@ -68,6 +105,7 @@ class CSStore:
     size1: int
     size2: int
     catalog: CSTable
+    strings: CSStringContainer
     tables: dict[int, CSTable]
 
     @classmethod
@@ -88,11 +126,19 @@ class CSStore:
         catalog = CSTable.from_unit(catalog, d)
 
         tables = {}
+        strings = None
 
         for key, value in catalog.hashmap.items():
-            tables[key] = CSTable.from_unit(value, d)
+            table = CSTable.from_unit(value, d)
+            if table.name == "<string>":
+                strings = CSStringContainer.from_store(table, d)
+                continue
+            else:
+                tables[key] = table
 
-        return cls(crc, size1, size2, catalog, tables)
+        assert strings
+
+        return cls(crc, size1, size2, catalog, strings, tables)
     
     def get_table(self, name: str) -> CSTable:
         for table in self.tables.values():
@@ -115,6 +161,3 @@ class CSStore:
             else:
                 out.append(int.from_bytes(d.read(2), "little"))
         return out
-    
-    def get_string(self, key: int) -> str:
-        return self.get_table("<string>").hashmap[key].data.decode("utf-8")

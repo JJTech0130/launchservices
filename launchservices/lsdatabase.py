@@ -68,9 +68,9 @@ class LSClaim(CSUnit):
         for _ in range(9):
             i = int.from_bytes(d.read(4), "little")
             if i != 0 and i != 1:
-                icon_files.append(database.store.get_string(i))
+                icon_files.append(database.store.strings.get_string(i))
         
-        delegate = database.store.get_string(int.from_bytes(d.read(4), "little"))
+        delegate = database.store.strings.get_string(int.from_bytes(d.read(4), "little"))
         if delegate != "":
             raise NotImplementedError("Delegate is not empty")
         bindings = database.binding_list[int.from_bytes(d.read(4), "little")]
@@ -117,7 +117,7 @@ class LSDatabase:
             list_count = int.from_bytes(d.read(4), "little")
             out_inner = {}
             for _ in range(list_count):
-                name = self.store.get_string(int.from_bytes(d.read(4), "little"))
+                name = self.store.strings.get_string(int.from_bytes(d.read(4), "little"))
                 value_count = int.from_bytes(d.read(4), "little")
                 values = []
                 for _ in range(value_count):
@@ -125,7 +125,7 @@ class LSDatabase:
                     if value & 1:
                         value = unpack_string(value)
                     else:
-                        value = self.store.get_string(value)
+                        value = self.store.strings.get_string(value)
                     values.append(value)
                 out_inner[name] = values
             out[key] = out_inner
@@ -146,6 +146,6 @@ class LSDatabase:
     def get_string_array(self, key: int) -> list[str]:
         if key != 0:
             raise NotImplementedError("<array> never tested")
-        return [self.store.get_string(x) for x in self.store.get_array(key)]
+        return [self.store.strings.get_string(x) for x in self.store.get_array(key)]
 
             
