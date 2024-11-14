@@ -14,7 +14,8 @@ class CSUnit:
     @classmethod
     def from_stream(cls, d: BytesIO) -> Self:
         id_and_flags = int.from_bytes(d.read(4), "little")
-        #id = (id_and_flags &~ ALL_FLAGS) << 2
+        id = (id_and_flags &~ ALL_FLAGS) << 2
+        print("read id", id)
         flags = id_and_flags & ALL_FLAGS
         size = int.from_bytes(d.read(4), "little")
         data = d.read(size)
@@ -24,15 +25,22 @@ class CSUnit:
     def data(self) -> bytes:
         return self._data
     
+    def to_stream(self, o: BytesIO, id: int):
+        id_and_flags = (id >> 2) | self.flags
+        b = id_and_flags.to_bytes(4, "little") + len(self._data).to_bytes(4, "little") + self._data
+        o.write(b)
+    
 def hashmap_from_stream(d: BytesIO, start: int) -> dict:
     map = {}
     tell = d.tell()
     d.seek(start)
     bucket_count = int.from_bytes(d.read(4), "little")
+    print("Bucket count", bucket_count)
     for _ in range(bucket_count):
         item_count = int.from_bytes(d.read(4), "little")
         items_offset = int.from_bytes(d.read(4), "little")
         t = d.tell()
+        print(f"{item_count} items at {items_offset}")
         d.seek(items_offset)
         for _ in range(item_count):
             key = int.from_bytes(d.read(4), "little")
@@ -42,7 +50,29 @@ def hashmap_from_stream(d: BytesIO, start: int) -> dict:
         d.seek(t)
     d.seek(tell)
     return map
-        
+
+def hashmap_to_stream(d: BytesIO, map: dict):
+    # need to write buckets 0 to 1024 even if empty
+    start = d.tell()
+    d.write((1024).to_bytes(4, "little"))
+    end_buckets = d.tell() + 1024 * 8
+    for i in range(1024):
+        d.write((1).to_bytes(4, "little"))
+        d.write((end_buckets + i * 8).to_bytes(4, "little"))
+    assert d.tell() == end_buckets
+    # Write empty buckets
+    for i in range(1024):
+        d.write((0).to_bytes(4, "little")) # key
+        d.write((0xFFFFFFFF).to_bytes(4, "little")) # value
+    
+
+    # start = d.tell()
+    # d.write(len(map).to_bytes(4, "little"))
+    # for key, value in map.items():
+    #     d.write(1)
+    #     d.write(key.to_bytes(4, "little"))
+    #     d.write(value.to_bytes(4, "little"))
+    # return start
 @dataclass
 class CSTable(CSUnit):
     name: str
@@ -76,6 +106,29 @@ class CSTable(CSUnit):
         self.hashmap[uid] = unit
         self._next_unit_id += 4
         return uid
+    
+    def to_stream(self, o: BytesIO, id: int):
+        # First create the unit contents
+        da = BytesIO()
+        da.write(self.name.encode("utf-8"))
+        da.write(b"\x00" * (0x30 - len(self.name)))
+        da.write(b"\x00" * 0x10)
+        da.write((self._next_unit_id // 4).to_bytes(4, "little"))
+        da.write((0).to_bytes(4, "little"))
+        da.write(self.extra)
+        # TODO: Write hashmap
+        da = bytearray(da.getvalue())
+        print(da.hex())
+        # Create the unit
+        u = CSUnit(flags=FLAG_CATALOG if self.name == "<catalog>" else 0, _data=da)
+        address_to_write_start = o.tell() + 0x30 + 0x10 + 0x4 + 0x8 # TODO: Better way to get this?
+        u.to_stream(o, id)
+
+        hashmap_header_start = o.tell()
+        o.seek(address_to_write_start)
+        o.write(hashmap_header_start.to_bytes(4, "little"))
+        o.seek(hashmap_header_start)
+        hashmap_to_stream(o, self.hashmap)
         
 
 @dataclass(kw_only=True)
@@ -149,6 +202,30 @@ class CSStore:
 
         return cls(_strings=strings, tables=tables)
     
+    def to_bytes(self) -> bytes:
+        o = BytesIO()
+        o.write(self.magic)
+        o.write(self.version.to_bytes(2, "little"))
+        o.write(b"\x00\x00") # CRC
+        o.write((1).to_bytes(4, "little")) # ?
+        o.write((0).to_bytes(4, "little")) # Size 1
+        o.write((0).to_bytes(4, "little")) # Size 2
+
+        catalog = CSTable(name="<catalog>")
+        for table in self.tables:
+            #catalog.store_unit(CSUnit(flags=0))
+            catalog.store_unit(table)
+        if self._strings:
+            catalog.store_unit(CSUnit(flags=0))
+        
+        catalog.to_stream(o, 0xFFFF6D74)
+
+        # Bring the file out to at least 0x8000
+        while o.tell() < 0x8000:
+            o.write(b"\x00")
+
+        return o.getvalue()
+
     @property
     def strings(self) -> CSStringContainer:
         if not self._strings:

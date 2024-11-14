@@ -12,11 +12,12 @@ def csstore():
 @click.argument("store_path")
 def create(store_path: str):
     store = CSStore()
-    table = CSTable("test")
-    store.tables.append(table)
+    #table = CSTable("")
+    #store.tables.append(table)
     print(store)
-    #with open(store_path, "wb") as f:
-    #    f.write(store.to_bytes())
+
+    with open(store_path, "wb") as f:
+        f.write(store.to_bytes())
 
 @csstore.command()
 @click.argument("store_path")
