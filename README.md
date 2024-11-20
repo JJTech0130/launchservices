@@ -24,7 +24,7 @@ python ./csstore.py ./samples/com.apple.LaunchServices-5019-v2.csstore dump ./cs
 On macOS, several versions of the database exist, one for each user. 
 They are stored in `DARWIN_USER_DIR/com.apple.LaunchServices.dv/com.apple.LaunchServices-<VERSION>-v2.csstore`.
 
-`DARWIN_USER_DIR` can be found with `getconf DARWIN_USER_DIR`, it is derived from the user's UID and UUID.[<sup>1</sup>]
+`DARWIN_USER_DIR` can be found with `getconf DARWIN_USER_DIR`, it is derived from the user's UID and UUID[^1].
 
 For example, the path might look like this:
 ```
@@ -105,4 +105,4 @@ These files can also be opened in CSStore Viewer.
 ```
 ...however, I have no idea where one can obtain `lsaw` or `CSStore Viewer`.
 
-[<sup>1</sup>]: https://www.swiftforensics.com/2017/04/the-mystery-of-varfolders-on-osx.html
+[^1]: https://www.swiftforensics.com/2017/04/the-mystery-of-varfolders-on-osx.html
