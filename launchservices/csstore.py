@@ -15,7 +15,7 @@ class CSUnit:
     def from_stream(cls, d: BytesIO) -> Self:
         id_and_flags = int.from_bytes(d.read(4), "little")
         id = (id_and_flags &~ ALL_FLAGS) << 2
-        print("read id", id)
+        #print("read id", id)
         flags = id_and_flags & ALL_FLAGS
         size = int.from_bytes(d.read(4), "little")
         data = d.read(size)
@@ -40,7 +40,7 @@ def hashmap_from_stream(d: BytesIO, start: int) -> dict:
         item_count = int.from_bytes(d.read(4), "little")
         items_offset = int.from_bytes(d.read(4), "little")
         t = d.tell()
-        print(f"{item_count} items at {items_offset}")
+        #print(f"{item_count} items at {items_offset}")
         d.seek(items_offset)
         for _ in range(item_count):
             key = int.from_bytes(d.read(4), "little")
@@ -52,7 +52,7 @@ def hashmap_from_stream(d: BytesIO, start: int) -> dict:
     return map
 
 def hashmap_to_stream(d: BytesIO, map: dict):
-    # need to write buckets 0 to 1024 even if empty
+    # need to write buckets 0 to 1024 if empty, otherwise, need 1 bucket per key?
     start = d.tell()
     d.write((1024).to_bytes(4, "little"))
     end_buckets = d.tell() + 1024 * 8
@@ -208,6 +208,7 @@ class CSStore:
         o.write(self.version.to_bytes(2, "little"))
         o.write(b"\x00\x00") # CRC
         o.write((1).to_bytes(4, "little")) # ?
+        sizes = o.tell()
         o.write((0).to_bytes(4, "little")) # Size 1
         o.write((0).to_bytes(4, "little")) # Size 2
 
@@ -219,6 +220,14 @@ class CSStore:
             catalog.store_unit(CSUnit(flags=0))
         
         catalog.to_stream(o, 0xFFFF6D74)
+
+        # Write the sizes
+        size = o.tell()
+        o.seek(sizes)
+        o.write(size.to_bytes(4, "little"))
+        o.write(size.to_bytes(4, "little"))
+
+        o.seek(0, 2)
 
         # Bring the file out to at least 0x8000
         while o.tell() < 0x8000:
